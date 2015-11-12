@@ -1,0 +1,64 @@
+<?php
+/**
+ * TicketMasterTest module - form with webform version
+ * Created: Janos Bodony, 2015 
+ */
+
+
+/**
+* Implementation of hook_views_api().
+/
+ function ticketmastertest_views_api() {
+  return array(
+   'api' => 3.0,
+   'path' => drupal_get_path('module', 'HOOK')
+  );
+ }
+   
+   
+/**
+* Implementation of hook_menu - add menu to administration page
+*/ 
+
+function ticketmastertest_menu() {
+  
+  $items = array();
+  
+     $items = array();
+  $items['admin/config/ticketmastertest'] = array(
+    'title' => 'TicketMaster Test Settings',
+    'description' => 'TicketMaster Test module',
+    'position' => 'left',
+    'weight' => -100,
+    'page callback' => 'system_admin_menu_block_page',
+    'access arguments' => array('administer site configuration'),
+    'file' => 'system.admin.inc',
+    'file path' => drupal_get_path('module', 'system'),
+  );
+
+  $items['admin/config/ticketmastertest/supporter'] = array(
+    'title' => 'Add supporter',
+    'description' => 'Add any supporter to the system',
+    'page callback' => 'ticketmastertest_form',
+    'access arguments' => array('administer site configuration'),
+  );
+  
+  return $items;
+}
+
+     
+/**
+ * Override the Views filtering with the current language
+ * Other option in the future: Add contectual feature 
+ */
+ 
+ function ticketmastertest_views_pre_build(&$view) {
+  
+  if ($view->name == 'supporter_webform_results'  && $view->current_display == 'supporter') {
+   global $language;
+   $view->display['supporter']->handler->handlers['filter']['data']->value = $language->language;		
+  }
+  
+ return $view;
+} 
+   

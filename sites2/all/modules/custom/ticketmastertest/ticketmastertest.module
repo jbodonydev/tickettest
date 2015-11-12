@@ -1,0 +1,370 @@
+<?php
+
+/**
+ * TicketMasterTest module 	- without webform
+ * Created: Janos Bodony, 2015 
+ */
+ 
+/**
+* Implementation of hook_views_api().
+*/
+ function ticketmastertest_views_api() {
+  return array(
+   'api' => 3.0
+  );
+ }
+ 
+ 
+/**
+* Implementation of hook_menu - add menu to administration page
+*/ 
+
+function ticketmastertest_menu() {
+  
+  $items = array();
+  
+     $items = array();
+  $items['admin/config/ticketmastertest'] = array(
+    'title' => 'TicketMaster Test Settings',
+    'description' => 'TicketMaster Test module',
+    'position' => 'left',
+    'weight' => -100,
+    'page callback' => 'system_admin_menu_block_page',
+    'access arguments' => array('administer site configuration'),
+    'file' => 'system.admin.inc',
+    'file path' => drupal_get_path('module', 'system'),
+  );
+
+  $items['admin/config/ticketmastertest/supporter'] = array(
+    'title' => 'Add supporter',
+    'description' => 'Add any supporter to the system',
+    'page callback' => 'ticketmastertest_form',
+    'access arguments' => array('administer site configuration'),
+  );
+  
+  return $items;
+}
+
+
+/**
+ * Override the Views contextual  filter value with the current language
+ */
+
+ function ticketmastertest_views_pre_build(&$view) {
+  
+  if ($view->name == 'supporter'  && $view->current_display == 'supporter') {
+   global $language;
+   $view->display_handler->handlers['argument']['language']->options['default_argument_options']['argument'] =  $language->language;
+  }
+  
+ return $view;
+} 
+   
+
+function ticketmastertest_form() {
+  return drupal_get_form('ticketmastertest_my_form');
+}
+
+// Adminsitration form
+
+function ticketmastertest_my_form($form_state) {
+
+  $languages = array('en' => t('England'),
+                 'fr' => t('France'),
+                 'de' => t('Germany')
+  );
+ 
+  $form['name'] = array(
+    '#type' => 'textfield',
+    '#title' => t("Supporter's name"),
+    '#default_value' => "",
+    '#description' => "Please enter a supporter's name.",
+    '#size' => 20,
+    '#maxlength' => 128,
+  );
+  $form['email'] = array(
+    '#type' => 'textfield',
+    '#title' => t("Supporter's email address"),
+    '#default_value' => "",
+    '#description' => "Please enter a supporter's email address.",
+    '#size' => 20,
+    '#maxlength' => 128,
+  );
+  $form['address'] = array(
+    '#type' => 'textfield',
+    '#title' => t("Supporter's address"),
+    '#default_value' => "",
+    '#description' => "Please enter a supporter's address.",
+    '#size' => 20,
+    '#maxlength' => 128,
+  );
+  $form['country'] = array(
+    '#type' => 'select',
+    '#title' => t("Supporter's country"),
+    '#description' => "Please enter a supporter's address.",
+	'#options' =>  $languages,
+  );
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => 'Submit',
+  );
+
+  $form['clear'] = array(
+    '#type' => 'submit',
+    '#value' => 'Reset form',
+    '#validate' => array('ticketmastertest_my_form_clear'),
+  );
+  
+  return $form;
+}
+
+function ticketmastertest_my_form_clear($form, &$form_state) {
+    $form_state['rebuild'] = TRUE;
+}
+
+
+/**
+ * Form validation
+ */
+
+function ticketmastertest_my_form_validate($form, &$form_state) {
+    $name = $form_state['values']['name'];
+    $email= $form_state['values']['email'];
+    $address = $form_state['values']['address'];
+	$country = $form_state['values']['country'];
+	
+    if (!$name) {
+        form_set_error('name', "Please enter supporter's name.");
+    }
+    if (!$email) {
+        form_set_error('email', "Please enter supporter's email address.");
+    }
+	if (!valid_email_address($email)) {
+        form_set_error('email', "Please enter valid supporter's email address.");
+    }
+    if (strlen($address) < 20) {
+        form_set_error('address', "Please enter valid address");
+    }	
+}
+
+/**
+ * Override the Views contextual  filter value with the current language
+ */
+
+
+function ticketmastertest_my_form_submit($form, &$form_state) {
+
+ $type_name = 'supporter';
+ // languages - to do: add languages to taxonomy
+ 
+ $languages = array('en' => t('England'),
+                 'fr' => t('France'),
+                 'de' => t('Germany')
+  );
+
+  // Checking of 'supporter' content type - if there is no this kind of content type, it will generate it.
+  
+ if (!in_array( $type_name, node_type_get_names() ) ) {
+ create_supporter_content_type ($languages);
+ }
+
+  global $user;
+
+  $name = $form_state['values']['name'];
+  $email= $form_state['values']['email'];
+  $address = $form_state['values']['address'];
+  $country = $form_state['values']['country'];
+
+  $node = new stdClass();
+  $node->title = $name."-".$country;
+  $node->type = "supporter";
+  node_object_prepare($node); 
+  $node->language = $country;
+  $node->supporter_name['und'][0]['value']   = $name;
+  $node->supporter_email['und'][0]['value']   = $email;
+  $node->supporter_address['und'][0]['value']   = $address;
+  $node->supporter_country['und'][0]['value']   = $country;
+  
+  $node->uid = $user->uid;
+  $node->status = 1;
+  $node->promote = 0;
+  $node->comment = 0; 
+  $node = node_submit($node); 
+  node_save($node);
+  drupal_set_message(t('The form has been submitted.'));
+
+  }
+
+// creating 'supporter' content type
+
+function create_supporter_content_type ($languages) {
+
+ // set support of multilanguages
+ 
+ variable_set('language_content_type_supporter','1');
+  
+  $type = array(
+      'type' => 'supporter',
+      'name' => t('supporter'),
+      'base' => 'node_content',
+      'description' => t("Use supporter pages for supporter's content."),
+      'custom' => 1,
+      'modified' => 1,
+      'locked' => 0,
+     );
+	
+  $type = node_type_set_defaults($type);
+  node_type_save($type);
+
+// Create fields - with instances
+  
+  $field_name = 'supporter_name';
+
+  $field = array(
+     'field_name' => $field_name,
+     'type' => 'text',
+  );
+  
+  $field = field_create_field( $field );
+
+  $instance = array(
+     'field_name' => $field[ 'field_name' ],
+     'entity_type' => 'node',
+     'bundle' => 'supporter',
+     'description' => 'A field for testing the programmatic creation of new fields.',
+     'label' => 'Name',
+     'widget' => array(
+     'type' => 'textfield',
+     ),
+   'display' => array(
+	  'default' => array (
+   	   'label' => 'inline', 
+	   'type' => 'text_plain',
+	   'settings' => array (),
+	   'weight' => 0
+	  ),
+	 'teaser' => array (
+   	   'label' => 'inline', 
+	   'type' => 'text_plain',
+	   'settings' => array (),
+	   'weight' => 0
+	  ),
+	)	 
+  );
+
+  field_create_instance($instance);
+  
+  $field_name = 'supporter_email';
+
+  $field = array(
+     'field_name' => $field_name,
+     'type' => 'text',
+  );
+
+  $field = field_create_field( $field );
+
+  $instance = array(
+     'field_name' => $field[ 'field_name' ],
+     'entity_type' => 'node',
+     'bundle' => 'supporter',
+     'description' => 'A field for testing the programmatic creation of new fields.',
+     'label' => 'Email',
+     'widget' => array(
+     'type' => 'textfield',
+     ),
+	 'display' => array(
+	  'default' => array (
+   	   'label' => 'inline', 
+	   'type' => 'text_plain',
+	   'settings' => array (),
+	   'weight' => 0
+	  ),
+	 'teaser' => array (
+   	   'label' => 'inline', 
+	   'type' => 'text_plain',
+	   'settings' => array (),
+	   'weight' => 0
+	  )
+	 ),
+  );
+
+  field_create_instance($instance);
+
+  $field_name = 'supporter_address';
+
+  $field = array(
+     'field_name' => $field_name,
+     'type' => 'text',
+  );
+
+  $field = field_create_field( $field );
+
+  $instance = array(
+     'field_name' => $field[ 'field_name' ],
+     'entity_type' => 'node',
+     'bundle' => 'supporter',
+     'description' => 'A field for testing the programmatic creation of new fields.',
+     'label' => 'Address',
+     'widget' => array(
+     'type' => 'textfield',
+     ),
+	 'display' => array(
+	  'default' => array (
+   	   'label' => 'inline', 
+	   'type' => 'text_plain',
+	   'settings' => array (),
+	   'weight' => 0
+	  ),
+	 'teaser' => array (
+   	   'label' => 'inline', 
+	   'type' => 'text_plain',
+	   'settings' => array (),
+	   'weight' => 0
+	  ),
+	  )
+  );
+
+  field_create_instance($instance);
+
+  $field_name = 'supporter_country';
+
+ $field = array(
+    'field_name' => $field_name,
+    'type' => 'list_text',
+    'settings' => array(
+      'allowed_values' => $languages,
+    ),
+  );
+
+  $field = field_create_field( $field );
+
+  $instance = array(
+    'field_name' => $field_name,
+    'entity_type' => 'node',
+    'bundle' => 'supporter',
+    'label' => 'Country',
+    'description' => "Select supporter's  country.",
+    'required' => TRUE,
+    'widget' => array(
+      'type' => 'options_select',
+      'weight' => 0,
+    ),
+    'display' => array(
+	  'default' => array (
+   	   'label' => 'inline', 
+	   'type' => 'text_plain',
+	   'settings' => array (),
+	   'weight' => 0
+	  ),
+	 'teaser' => array (
+   	   'label' => 'inline', 
+	   'type' => 'text_plain',
+	   'settings' => array (),
+	   'weight' => 0
+	  ),
+	)
+  );
+ 
+  field_create_instance($instance);
+  
+}

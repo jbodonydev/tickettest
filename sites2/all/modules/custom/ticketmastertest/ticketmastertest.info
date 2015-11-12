@@ -1,0 +1,10 @@
+name = TicketMasterTest
+description = Administration of Support persons' data and presentation (D7 test for TicketMaster) - without Webform
+core = 7.x
+
+version = "7.x-1.0"
+core = "7.x"
+dependencies[] = views
+configure = admin/config/ticketmastertest
+datestamp = "1447265126"
+
